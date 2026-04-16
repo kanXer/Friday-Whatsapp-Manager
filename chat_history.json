@@ -1,0 +1,58 @@
+{
+  "223222704390325@lid": [
+    {
+      "role": "user",
+      "content": "hy",
+      "timestamp": 1776340017902
+    },
+    {
+      "role": "assistant",
+      "content": "Hey! 👋 Kya haal chaal? Sab badhiya?",
+      "timestamp": 1776340223979
+    },
+    {
+      "role": "user",
+      "content": "ha tum btao",
+      "timestamp": 1776340245020
+    },
+    {
+      "role": "assistant",
+      "content": "Haan, main badhiya! Tu bata, sab theek hai? 😄",
+      "timestamp": 1776340356583
+    },
+    {
+      "role": "user",
+      "content": "haa thik hii hh",
+      "timestamp": 1776341687789
+    },
+    {
+      "role": "assistant",
+      "content": "Bhai, sunao, abhi tak koi badi news nahi? 😄",
+      "timestamp": 1776341993757
+    }
+  ],
+  "120363155094250235@newsletter": [
+    {
+      "role": "user",
+      "content": "*'Dire strait'* \n\n _Europe may run out of jet fuel in 6 weeks warns IEA chief amid Iran war crisis_\n\nRead More: [https://toi.in/ceq]\n\n*Ready to Make a Smarter Property Decision?  Build Your Legacy with TOI Homes.* [http://toi.in/hometoi]",
+      "timestamp": 1776340369588
+    },
+    {
+      "role": "assistant",
+      "content": "Wow, 6 weeks? 😳 That sounds way more urgent than the headlines make it seem. Just trying to figure out if they're talking about actual fuel or just panic mode. \n\nWhat's your take? Are you scared of the flight delays or just the whole situation? ✈️🇮🇷",
+      "timestamp": 1776340513419
+    }
+  ],
+  "120363206763914233@newsletter": [
+    {
+      "role": "user",
+      "content": "Be ready guys for the session 🔥 from 7 PM ✌\n\n*1 hr left only*, I need at least 200 people taki, josh bni rhe in Live 😊\n\nhttps://www.youtube.com/live/E0Psj8rSSkc?si=GkIAmiiKjFJsh2uu",
+      "timestamp": 1776342863849
+    },
+    {
+      "role": "assistant",
+      "content": "Wah, last hour ka pressure hai par yehi asli magic hai! 🔥\n\n200 log josh mein honge, bhai! Link share kar, main check kar ke dekhungi ki sab ready hain ya nahi. 😎🚀",
+      "timestamp": 1776343228018
+    }
+  ]
+}

@@ -16,9 +16,41 @@ const path = require('path')
 const LLMEngine = require('./core/llm')
 
 const BRAIN_PATH = process.env.BRAIN_PATH || "brain"
+const HISTORY_FILE = 'chat_history.json'
+const MAX_HISTORY_PER_CHAT = 50
 
 const llm = new LLMEngine({})
-const messageHistory = new Map()
+
+function loadHistory() {
+    try {
+        if (fs.existsSync(HISTORY_FILE)) {
+            const data = fs.readFileSync(HISTORY_FILE, 'utf-8')
+            const parsed = JSON.parse(data)
+            const map = new Map()
+            let totalMsgs = 0
+            for (const [key, value] of Object.entries(parsed)) {
+                map.set(key, value)
+                totalMsgs += value.length
+            }
+            console.log(`📜 Loaded history for ${map.size} chats (${totalMsgs} total messages)`)
+            return map
+        }
+    } catch (err) {
+        console.log("⚠️ Could not load history, starting fresh")
+    }
+    return new Map()
+}
+
+function saveHistory(history) {
+    try {
+        const obj = Object.fromEntries(history)
+        fs.writeFileSync(HISTORY_FILE, JSON.stringify(obj, null, 2), 'utf-8')
+    } catch (err) {
+        console.error("❌ Failed to save history:", err.message)
+    }
+}
+
+const messageHistory = loadHistory()
 
 // Silent logger - simple object
 const log = {
@@ -68,7 +100,7 @@ async function startBot() {
         }
 
         if (connection === 'close') {
-            const reason = new Boom(lastDisconnect?.error)?.output?.statusCode
+            const reason = Boom.boomify(lastDisconnect?.error)?.output?.statusCode
             console.log("❌ Connection closed. Reason:", reason)
 
             if (reason === DisconnectReason.loggedOut) {
@@ -103,17 +135,28 @@ async function startBot() {
             const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text
 
             if (!text) continue
-            if (isGroup) continue // Skip groups
 
-            console.log(`\n📩 ${pushName}: ${text}`)
+            // Get mentions - check if bot is @mentioned
+            const mentions = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || []
+            const botJid = sock.user?.id?.replace(':131@', '@s.whatsapp.net') || ''
+            const isBotMentioned = mentions.includes(botJid) || mentions.some(m => m.includes(botJid.split('@')[1]))
+
+            // In groups: only respond if @mentioned
+            // In DM: always respond
+            if (isGroup && !isBotMentioned) continue
 
             // Get chat history for context
             if (!messageHistory.has(chat)) {
                 messageHistory.set(chat, [])
             }
             const history = messageHistory.get(chat)
-            history.push({ role: 'user', content: text })
-            if (history.length > 5) history.shift()
+            
+            console.log(`\n📩 ${pushName}: ${text}`)
+            console.log(`📜 Using ${history.length} messages from history`)
+            
+            history.push({ role: 'user', content: text, timestamp: Date.now() })
+            if (history.length > MAX_HISTORY_PER_CHAT) history.shift()
+            saveHistory(messageHistory)
 
             try {
                 // Keep typing indicator while processing
@@ -131,16 +174,33 @@ async function startBot() {
                     const behavior = brain.behavior || ''
                     const memory = brain.memory || ''
                     
-                    const historyText = history.map(m => `${m.role === 'user' ? 'User' : 'FRIDAY'}: ${m.content}`).join('\n')
+                    const recentHistory = history.slice(-12)
+                    const historyText = recentHistory.map(m => {
+                        const time = new Date(m.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+                        return `[${time}] ${m.role === 'user' ? 'User' : 'FRIDAY'}: ${m.content}`
+                    }).join('\n')
                     
-                    const prompt = `${personality}\n${behavior}\n${memory}\n\nRecent conversation:\n${historyText}\n\nYou are FRIDAY. Reply naturally like a human on WhatsApp.\nUser: ${text}\nFRIDAY:`
+                    const prompt = `${personality}\n${behavior}\n${memory}\n\nRecent conversation (remember this context):\n${historyText}\n\nYou are FRIDAY. Remember the conversation above. Reply naturally like a human on WhatsApp based on the context.\n\nIMPORTANT: If user shares personal info (name, age, preferences, facts about themselves, hobbies, etc.), end your response with "[MEMORY: <what to remember>]" so I can save it. Example: "Nice to meet you!" [MEMORY: user's name is John]\n\nUser: ${text}\nFRIDAY:`
                     
                     // Call LLM using core/llm.js (reads env automatically)
                     try {
                         reply = await llm.generateReply(prompt, chat)
+                        
+                        // Check if LLM wants to save something to memory
+                        const memoryMatch = reply.match(/\[MEMORY:\s*(.+?)\]/i)
+                        if (memoryMatch) {
+                            const memoryInfo = memoryMatch[1].trim()
+                            const memFile = path.join(BRAIN_PATH, 'memory.md')
+                            const current = fs.existsSync(memFile) ? fs.readFileSync(memFile, 'utf-8') : '# Memory\n\nUser memories:\n'
+                            if (!current.includes(memoryInfo)) {
+                                fs.writeFileSync(memFile, current + `- ${memoryInfo}\n`)
+                                console.log(`📝 LLM saved to memory: ${memoryInfo}`)
+                            }
+                            reply = reply.replace(/\[MEMORY:\s*.+?\]/gi, '').trim()
+                        }
                     } catch (apiErr) {
                         console.log("❌ LLM error:", apiErr.message)
-                        reply = `${text}. Tell me more!`
+                        reply = "Sorry, something went wrong. Try again!"
                     }
                 }
 
@@ -154,7 +214,8 @@ async function startBot() {
                 await sock.sendMessage(chat, { text: reply.toString().trim() })
                 
                 // Add bot response to history
-                history.push({ role: 'assistant', content: reply })
+                history.push({ role: 'assistant', content: reply, timestamp: Date.now() })
+                saveHistory(messageHistory)
 
             } catch (err) {
                 console.error("❌ Error:", err.message)
@@ -209,41 +270,57 @@ function checkBrain(text, brain, chat) {
         return "🔄 Brain reloaded!"
     }
     if (lower === '/help') {
-        return "Commands:\n/reload - Reload brain\n/memory add <info> - Save info\n/memory clear - Clear memory\n/ping - Pong"
+        return "Commands:\n/reload - Reload brain\n/memory add <info> - Save info\n/memory clear - Clear memory\n/clearhistory - Clear chat history\n/ping - Pong"
     }
     if (lower === '/ping') {
         return "pong 🏓"
     }
-
-    return null
-}
-
-function getLocalReply(text) {
-    const lower = text.toLowerCase().trim()
     
-    const responses = {
-        'hi': 'Hello! 👋',
-        'hello': 'Hi there! How can I help?',
-        'hey': 'Hey! Whats up?',
-        'hy': 'Hello! 👋',
-        'how are you': "I'm fine! Thanks for asking 😊",
-        'what is your name': "I'm FRIDAY - your WhatsApp assistant!",
-        'who are you': "I'm FRIDAY, an AI bot built with Baileys!",
-        'thanks': 'Welcome! 😊',
-        'thank you': 'You are welcome! 😊',
-        'bye': 'Goodbye! 👋',
-        'ok': 'Great! 👍',
-        'lol': 'Haha! 😂',
-        'haha': 'Haha! 😂',
+    if (lower === '/clearhistory') {
+        messageHistory.set(chat, [])
+        saveHistory(messageHistory)
+        return "🗑️ Chat history cleared for this conversation!"
     }
     
-    for (const [key, value] of Object.entries(responses)) {
-        if (lower.includes(key)) {
-            return value
+    // Auto-detect memory commands
+    const memoryPatterns = [
+        'remember that', 'remember this', 'remember,',
+        'save this', 'save it', 'save that', 'keep this in mind',
+        'isko yaad rakh', 'yaad rakh', 'yaad rakho',
+        'bhool mat', 'mat bhoolna', `don't forget`,
+        'mera naam hai', 'i am', 'i\'m', 'my name is',
+        'meri age', 'meri umar', 'my age is',
+        'mai', 'मैं', 'मेरा', 'meri', 'mera'
+    ]
+    
+    const lowerText = lower.trim()
+    const shouldSaveToMemory = memoryPatterns.some(pattern => lowerText.includes(pattern))
+    
+    if (shouldSaveToMemory) {
+        // Extract the key info to save
+        let infoToSave = text
+        
+        // Clean up the command words from the text
+        for (const pattern of memoryPatterns) {
+            infoToSave = infoToSave.replace(new RegExp(pattern, 'gi'), '')
+        }
+        infoToSave = infoToSave.replace(/[,.\/!@#$%^&*]/g, '').trim()
+        
+        if (infoToSave.length > 3) {
+            const memFile = path.join(BRAIN_PATH, 'memory.md')
+            const current = fs.existsSync(memFile) ? fs.readFileSync(memFile, 'utf-8') : '# Memory\n\nUser memories:\n'
+            
+            // Check for duplicates
+            if (!current.includes(infoToSave)) {
+                fs.writeFileSync(memFile, current + `- ${infoToSave}\n`)
+                Object.assign(brain, loadBrain())
+                saveHistory(messageHistory)
+                console.log(`📝 Auto-saved to memory: ${infoToSave}`)
+            }
         }
     }
-    
-    return "I didn't quite catch that. Try /help for commands!"
+
+    return null
 }
 
 function watchBrain(brain) {
