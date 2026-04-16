@@ -1,0 +1,29 @@
+{
+  "name": "friday",
+  "version": "1.0.0",
+  "description": "LLM-powered WhatsApp Bot using Ollama",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "baileys",
+    "ollama",
+    "llm",
+    "bot"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.21",
+    "axios": "^1.7.9",
+    "chokidar": "^4.0.3",
+    "dotenv": "^16.4.7",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

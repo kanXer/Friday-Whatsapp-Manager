@@ -1,0 +1,16 @@
+{
+  "botName": "FRIDAY",
+  "sessionPath": "session",
+  "logLevel": "info",
+  "maxMemoryMessages": 5,
+  "requestCooldown": 2000,
+  "llm": {
+    "mode": "ollama",
+    "ollamaUrl": "http://localhost:11434",
+    "ollamaModel": "sorc/qwen3.5-instruct:4b",
+    "geminiKey": "",
+    "geminiModel": "gemini-2.0-flash",
+    "openaiKey": "",
+    "openaiModel": "gpt-4o-mini"
+  }
+}
