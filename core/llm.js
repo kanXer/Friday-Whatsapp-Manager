@@ -1,3 +1,4 @@
+require('dotenv').config()
 const axios = require('axios');
 
 class LLMEngine {
@@ -6,7 +7,8 @@ class LLMEngine {
   }
 
   async generateReply(prompt, userId) {
-    const mode = process.env.LLM_MODE || this.config.llm?.mode || 'ollama';
+    const mode = process.env.LLM_MODE;
+    //  || this.config.llm?.mode || 'ollama';
 
     try {
       if (mode === 'ollama') {
@@ -23,8 +25,10 @@ class LLMEngine {
   }
 
   async callOllama(prompt) {
-    const url = process.env.OLLAMA_URL || "http://localhost:11434"
-    const model = process.env.OLLAMA_MODEL || "sorc/qwen3.5-instruct:4b"
+    const url = process.env.OLLAMA_URL 
+    // || "http://localhost:11434"
+    const model = process.env.OLLAMA_MODEL 
+    // || "sorc/qwen3.5-instruct:4b"
 
     const response = await axios.post(`${url}/api/generate`, {
       model,
@@ -32,7 +36,7 @@ class LLMEngine {
       stream: false
     }, {
       headers: { 'Content-Type': 'application/json' },
-      timeout: 9999999999
+      timeout: 9999999
     });
 
     return response.data.response || response.data.message?.content;

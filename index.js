@@ -16,7 +16,6 @@ const path = require('path')
 const LLMEngine = require('./core/llm')
 
 const BRAIN_PATH = process.env.BRAIN_PATH || "brain"
-const BOT_NAME = process.env.BOT_NAME || "FRIDAY"
 
 const llm = new LLMEngine({})
 const messageHistory = new Map()
@@ -47,8 +46,8 @@ async function startBot() {
         auth: state,
         printQRInTerminal: false,
         logger: log,
-        browser: ["Ubuntu", "Chrome", "20.04"],
-        syncFullHistory: false
+        browser: ["Ubuntu", "Chrome", "126.0.0"],
+        syncFullHistory: true
     })
 
     // Credentials save
